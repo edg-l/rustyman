@@ -11,7 +11,7 @@ use bit_vec::BitVec;
 // - https://aquarchitect.github.io/swift-algorithm-club/Huffman%20Coding/
 
 #[derive(Debug, Clone, Copy)]
-pub struct Node {
+struct Node {
     pub data: Option<u8>,
     pub count: usize,
     pub index: Option<usize>,
@@ -61,6 +61,7 @@ pub struct Huffman {
 }
 
 impl Huffman {
+    /// Initializes the huffman interface using the provided frequency table.
     pub fn new(frequency_table: &HashMap<u8, usize>) -> Self {
         let tree = Self::build_tree(frequency_table);
         let indexes = tree
@@ -72,11 +73,12 @@ impl Huffman {
         Self { tree, indexes }
     }
 
-    /// Creates the Huffman frequency table from the provided data.
+    /// Creates the Huffman frequency table from the provided data and initializes from it.
     pub fn new_from_data(data: &[u8]) -> Self {
         Self::new(&Self::calculate_freq_table(data))
     }
 
+    /// Calculates the frequency table from the provided data.
     pub fn calculate_freq_table(data: &[u8]) -> HashMap<u8, usize> {
         let mut table: HashMap<u8, usize> = HashMap::with_capacity(256.min(data.len() / 2));
 
@@ -155,6 +157,7 @@ impl Huffman {
         }
     }
 
+    /// Compresses the provided data.
     pub fn compress(&self, data: &[u8]) -> Vec<u8> {
         let mut bits = BitVec::new();
 
@@ -172,6 +175,7 @@ impl Huffman {
         bits.to_bytes()
     }
 
+    /// Decompresses the provided data.
     pub fn decompress(&self, data: &[u8]) -> Vec<u8> {
         let bits = BitVec::from_bytes(data);
         let mut decompressed = Vec::with_capacity(bits.len() * 2);
