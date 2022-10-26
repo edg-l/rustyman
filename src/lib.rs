@@ -26,9 +26,7 @@
 #![deny(missing_docs)]
 #![deny(rustdoc::missing_doc_code_examples)]
 
-use std::{
-    collections::{BinaryHeap},
-};
+use std::collections::BinaryHeap;
 
 use bit_vec::BitVec;
 
@@ -117,7 +115,7 @@ impl Huffman {
     }
 
     /// Builds a binary tree, the root is the last node, the leafs are at the start.
-    /// 
+    ///
     /// Returns the root index.
     fn build_tree(tree: &mut [Node; TREE_SIZE], table: &[usize; MAX_SYMBOLS]) -> usize {
         let mut priority_queue: BinaryHeap<Node> = table
@@ -125,7 +123,7 @@ impl Huffman {
             .enumerate()
             .map(|(index, v)| Node::new(index, *v))
             .collect();
-        
+
         let mut tree_index = 256;
 
         while priority_queue.len() > 1 {
@@ -179,11 +177,7 @@ impl Huffman {
         let mut bits = BitVec::new();
 
         for b in data.iter() {
-            self.traverse(
-                &mut bits,
-                *b as usize,
-                None,
-            )
+            self.traverse(&mut bits, *b as usize, None)
         }
 
         bits.to_bytes()
