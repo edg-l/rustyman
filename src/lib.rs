@@ -102,6 +102,29 @@ impl Huffman {
 
         let mut tree: Vec<Rc<RefCell<Node>>> = Vec::with_capacity(priority_queue.len() * 2);
 
+        // Handle case where the frequency table has only 1 value.
+        if priority_queue.len() == 1 {
+            let shared_node = priority_queue.pop().unwrap();
+            let mut node = shared_node.borrow_mut();
+            node.index = Some(tree.len());
+
+            tree.push(shared_node.clone());
+
+            let parent = Node {
+                data: None,
+                count: node.count,
+                left: node.index,
+                right: None,
+                parent: None,
+                index: Some(tree.len()),
+            };
+
+            node.parent = parent.index;
+
+            let parent = Rc::new(RefCell::new(parent));
+            tree.push(parent);
+        }
+
         while priority_queue.len() > 1 {
             let shared_node1 = priority_queue.pop().unwrap();
             let shared_node2 = priority_queue.pop().unwrap();
@@ -159,6 +182,10 @@ impl Huffman {
 
     /// Compresses the provided data.
     pub fn compress(&self, data: &[u8]) -> Vec<u8> {
+        if data.is_empty() {
+            return Vec::new();
+        }
+
         let mut bits = BitVec::new();
 
         for b in data.iter() {
@@ -167,7 +194,7 @@ impl Huffman {
                 *self
                     .indexes
                     .get(b)
-                    .expect("frequency table did not contain this byte"),
+                    .unwrap_or_else(|| panic!("frequency table did not contain this byte: {:?}", b)),
                 None,
             )
         }
@@ -177,6 +204,10 @@ impl Huffman {
 
     /// Decompresses the provided data.
     pub fn decompress(&self, data: &[u8]) -> Vec<u8> {
+        if data.is_empty() {
+            return Vec::new();
+        }
+
         let bits = BitVec::from_bytes(data);
         let mut decompressed = Vec::with_capacity(bits.len() * 2);
         let root_index = self.tree.len() - 1;
@@ -187,7 +218,7 @@ impl Huffman {
         for _ in 0..byte_count {
             let mut index = root_index;
 
-            while self.tree[index].right.is_some() {
+            while self.tree[index].left.is_some() ||self.tree[index].right.is_some() {
                 let bit = bits_iter.next().expect("missing data");
                 if bit {
                     index = self.tree[index].left.expect("should have left index");
@@ -206,6 +237,7 @@ impl Huffman {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn compress_decompress() {
@@ -229,5 +261,45 @@ mod tests {
 
         assert!(compressed.len() < payload.len());
         assert_eq!(&payload[..], decompressed)
+    }
+
+    #[test]
+    fn create_freq_table() {
+        let table = Huffman::calculate_freq_table(&[0]);
+
+        assert_eq!(table.len(), 1);
+        assert_eq!(*table.get(&0).unwrap(), 1);
+
+        let table = Huffman::calculate_freq_table(&[0,1,2,2,3,3,3]);
+
+        assert_eq!(table.len(), 4);
+        assert_eq!(*table.get(&0).unwrap(), 1);
+        assert_eq!(*table.get(&1).unwrap(), 1);
+        assert_eq!(*table.get(&2).unwrap(), 2);
+        assert_eq!(*table.get(&3).unwrap(), 3);
+
+    }
+
+    #[test]
+    fn test_payload_size_1() {
+        let payload = &[0u8];
+    
+        let huffman = Huffman::new_from_data(payload);
+        let compressed = huffman.compress(payload);
+        let decompressed = huffman.decompress(&compressed);
+
+        assert_eq!(&payload[..], decompressed)
+    }
+
+    proptest! {
+        #[test]
+        fn proptest_compress_decompress(data: Vec<u8>) {
+            let huffman = Huffman::new_from_data(&data);
+            let compressed = huffman.compress(&data);
+            let decompressed = huffman.decompress(&compressed);
+    
+            prop_assert!(compressed.len() <= data.len());
+            prop_assert_eq!(data, decompressed);
+        }
     }
 }
