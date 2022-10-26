@@ -301,5 +301,14 @@ mod tests {
             prop_assert!(compressed.len() <= data.len());
             prop_assert_eq!(data, decompressed);
         }
+
+        #[test]
+        fn proptest_freq_table(data: Vec<u8>) {
+            let table = Huffman::calculate_freq_table(&data);
+
+            for b in &data {
+                prop_assert!(table.get(b).is_some());
+            }
+        }
     }
 }
