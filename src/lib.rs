@@ -17,7 +17,7 @@
 //! let huffman = Huffman::new_from_data(payload);
 //! let compressed = huffman.compress(payload);
 //! let decompressed = huffman.decompress(&compressed);
-//! 
+//!
 //! assert!(compressed.len() < payload.len());
 //! assert_eq!(&payload[..], decompressed);
 //! ```
@@ -82,7 +82,7 @@ impl Ord for Node {
 }
 
 /// Holds the data needed to (de)compress.
-/// 
+///
 /// - Compress with [Self::compress]
 /// - Decompress with [Self::decompress]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -223,10 +223,9 @@ impl Huffman {
         for b in data.iter() {
             self.traverse(
                 &mut bits,
-                *self
-                    .indexes
-                    .get(b)
-                    .unwrap_or_else(|| panic!("frequency table did not contain this byte: {:?}", b)),
+                *self.indexes.get(b).unwrap_or_else(|| {
+                    panic!("frequency table did not contain this byte: {:?}", b)
+                }),
                 None,
             )
         }
@@ -250,7 +249,7 @@ impl Huffman {
         for _ in 0..byte_count {
             let mut index = root_index;
 
-            while self.tree[index].left.is_some() ||self.tree[index].right.is_some() {
+            while self.tree[index].left.is_some() || self.tree[index].right.is_some() {
                 let bit = bits_iter.next().expect("missing data");
                 if bit {
                     index = self.tree[index].left.expect("should have left index");
@@ -274,7 +273,7 @@ mod tests {
     #[test]
     fn compress_decompress() {
         let payload = b"so much words wow many compression";
-    
+
         let huffman = Huffman::new_from_data(payload);
         let compressed = huffman.compress(payload);
         let decompressed = huffman.decompress(&compressed);
@@ -286,7 +285,7 @@ mod tests {
     #[test]
     fn compress_decompress_lorem_ipsum() {
         let payload = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-    
+
         let huffman = Huffman::new_from_data(payload);
         let compressed = huffman.compress(payload);
         let decompressed = huffman.decompress(&compressed);
@@ -302,20 +301,19 @@ mod tests {
         assert_eq!(table.len(), 1);
         assert_eq!(*table.get(&0).unwrap(), 1);
 
-        let table = Huffman::calculate_freq_table(&[0,1,2,2,3,3,3]);
+        let table = Huffman::calculate_freq_table(&[0, 1, 2, 2, 3, 3, 3]);
 
         assert_eq!(table.len(), 4);
         assert_eq!(*table.get(&0).unwrap(), 1);
         assert_eq!(*table.get(&1).unwrap(), 1);
         assert_eq!(*table.get(&2).unwrap(), 2);
         assert_eq!(*table.get(&3).unwrap(), 3);
-
     }
 
     #[test]
     fn test_payload_size_1() {
         let payload = &[0u8];
-    
+
         let huffman = Huffman::new_from_data(payload);
         let compressed = huffman.compress(payload);
         let decompressed = huffman.decompress(&compressed);
@@ -329,7 +327,7 @@ mod tests {
             let huffman = Huffman::new_from_data(&data);
             let compressed = huffman.compress(&data);
             let decompressed = huffman.decompress(&compressed);
-    
+
             prop_assert!(compressed.len() <= data.len());
             prop_assert_eq!(data, decompressed);
         }
