@@ -1,6 +1,6 @@
 [package]
 name = "rustyman"
-version = "0.2.3"
+version = "0.3.0"
 edition = "2021"
 authors = ["Edgar <git@edgarluque.com>"]
 description = "Huffman compression and decompression"
@@ -10,6 +10,7 @@ keywords = ["huffman", "compression", "decompression", "lossless", "huffman-codi
 categories = ["compression", "algorithms"]
 documentation = "https://docs.rs/rustyman"
 readme = "README.md"
+rust-version = "1.63.0" # array from_fn
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

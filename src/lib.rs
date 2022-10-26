@@ -49,7 +49,7 @@ struct Node {
 }
 
 impl Node {
-    fn new(index: usize, count: usize) -> Self {
+    const fn new(index: usize, count: usize) -> Self {
         Self {
             index,
             count,
