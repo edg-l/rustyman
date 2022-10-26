@@ -27,9 +27,7 @@
 #![deny(rustdoc::missing_doc_code_examples)]
 
 use std::{
-    cell::RefCell,
-    collections::{BinaryHeap, HashMap},
-    rc::Rc,
+    collections::{BinaryHeap},
 };
 
 use bit_vec::BitVec;
@@ -38,22 +36,25 @@ use bit_vec::BitVec;
 // - https://en.wikipedia.org/wiki/Huffman_coding
 // - https://aquarchitect.github.io/swift-algorithm-club/Huffman%20Coding/
 
+/// Max symbols in the frequency table. Covers all possible u8 values.
+pub const MAX_SYMBOLS: usize = u8::MAX as usize + 1;
+
+const TREE_SIZE: usize = MAX_SYMBOLS * 2 - 1;
+
 #[derive(Debug, Clone, Copy)]
 struct Node {
-    pub data: Option<u8>,
+    pub index: usize,
     pub count: usize,
-    pub index: Option<usize>,
     pub parent: Option<usize>,
     pub left: Option<usize>,
     pub right: Option<usize>,
 }
 
 impl Node {
-    fn new(data: u8, count: usize) -> Self {
+    fn new(index: usize, count: usize) -> Self {
         Self {
-            data: Some(data),
+            index,
             count,
-            index: None,
             parent: None,
             left: None,
             right: None,
@@ -87,112 +88,69 @@ impl Ord for Node {
 /// - Decompress with [Self::decompress]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Huffman {
-    tree: Vec<Node>,
-    // index lookup table for the leaf nodes.
-    indexes: HashMap<u8, usize>,
+    tree: [Node; TREE_SIZE],
+    root_index: usize,
 }
 
 impl Huffman {
     /// Initializes the huffman interface using the provided frequency table.
-    pub fn new(frequency_table: &HashMap<u8, usize>) -> Self {
-        let tree = Self::build_tree(frequency_table);
-        let indexes = tree
-            .iter()
-            .filter(|x| x.data.is_some())
-            .map(|n| (n.data.unwrap(), n.index.expect("should have index")))
-            .collect();
+    pub fn new(frequency_table: &[usize; MAX_SYMBOLS]) -> Self {
+        let mut tree = std::array::from_fn(|i| Node::new(i, 0));
+        let root_index = Self::build_tree(&mut tree, frequency_table);
 
-        Self { tree, indexes }
+        Self { tree, root_index }
     }
 
     /// Creates the Huffman frequency table from the provided data and initializes from it.
     pub fn new_from_data(data: &[u8]) -> Self {
-        Self::new(&Self::calculate_freq_table(data))
+        let mut table = [0; MAX_SYMBOLS];
+        Self::calculate_freq_table(&mut table, data);
+        Self::new(&table)
     }
 
     /// Calculates the frequency table from the provided data.
-    pub fn calculate_freq_table(data: &[u8]) -> HashMap<u8, usize> {
-        let mut table: HashMap<u8, usize> = HashMap::with_capacity(256.min(data.len() / 2));
-
+    pub fn calculate_freq_table(table: &mut [usize; MAX_SYMBOLS], data: &[u8]) {
+        table.fill(0);
         for i in data {
-            if let Some(c) = table.get_mut(i) {
-                *c += 1;
-            } else {
-                table.insert(*i, 1);
-            }
+            table[*i as usize] += 1;
         }
-
-        table
     }
 
     /// Builds a binary tree, the root is the last node, the leafs are at the start.
-    fn build_tree(table: &HashMap<u8, usize>) -> Vec<Node> {
-        let mut priority_queue: BinaryHeap<Rc<RefCell<Node>>> = table
+    /// 
+    /// Returns the root index.
+    fn build_tree(tree: &mut [Node; TREE_SIZE], table: &[usize; MAX_SYMBOLS]) -> usize {
+        let mut priority_queue: BinaryHeap<Node> = table
             .iter()
-            .map(|(c, v)| Rc::new(RefCell::new(Node::new(*c, *v))))
+            .enumerate()
+            .map(|(index, v)| Node::new(index, *v))
             .collect();
-
-        let mut tree: Vec<Rc<RefCell<Node>>> = Vec::with_capacity(priority_queue.len() * 2);
-
-        // Handle case where the frequency table has only 1 value.
-        if priority_queue.len() == 1 {
-            let shared_node = priority_queue.pop().unwrap();
-            let mut node = shared_node.borrow_mut();
-            node.index = Some(tree.len());
-
-            tree.push(shared_node.clone());
-
-            let parent = Node {
-                data: None,
-                count: node.count,
-                left: node.index,
-                right: None,
-                parent: None,
-                index: Some(tree.len()),
-            };
-
-            node.parent = parent.index;
-
-            let parent = Rc::new(RefCell::new(parent));
-            tree.push(parent);
-        }
+        
+        let mut tree_index = 256;
 
         while priority_queue.len() > 1 {
-            let shared_node1 = priority_queue.pop().unwrap();
-            let shared_node2 = priority_queue.pop().unwrap();
+            let node1 = priority_queue.pop().unwrap();
+            let node2 = priority_queue.pop().unwrap();
 
-            let mut node1 = shared_node1.borrow_mut();
-            if node1.index.is_none() {
-                node1.index = Some(tree.len());
-                tree.push(shared_node1.clone());
-            }
-
-            let mut node2 = shared_node2.borrow_mut();
-            if node2.index.is_none() {
-                node2.index = Some(tree.len());
-                tree.push(shared_node2.clone());
-            }
-
-            let parent_index = tree.len();
-
-            node1.parent = Some(parent_index);
-            node2.parent = Some(parent_index);
+            tree[node1.index] = node1;
+            tree[node2.index] = node2;
+            tree[node1.index].parent = Some(tree_index);
+            tree[node2.index].parent = Some(tree_index);
 
             let parent = Node {
-                data: None,
                 count: node1.count + node2.count,
-                left: node1.index,
-                right: node2.index,
+                left: Some(node1.index),
+                right: Some(node2.index),
                 parent: None,
-                index: Some(parent_index),
+                index: tree_index,
             };
+            tree[tree_index] = parent;
+            tree_index += 1;
 
-            let parent = Rc::new(RefCell::new(parent));
-            tree.push(parent.clone());
             priority_queue.push(parent);
         }
 
-        tree.into_iter().map(|x| *x.borrow()).collect()
+        priority_queue.pop().unwrap().index
     }
 
     // Recursively walk to the root and back to calculate the bits.
@@ -223,9 +181,7 @@ impl Huffman {
         for b in data.iter() {
             self.traverse(
                 &mut bits,
-                *self.indexes.get(b).unwrap_or_else(|| {
-                    panic!("frequency table did not contain this byte: {:?}", b)
-                }),
+                *b as usize,
                 None,
             )
         }
@@ -241,13 +197,12 @@ impl Huffman {
 
         let bits = BitVec::from_bytes(data);
         let mut decompressed = Vec::with_capacity(bits.len() * 2);
-        let root_index = self.tree.len() - 1;
-        let byte_count = self.tree[root_index].count;
+        let byte_count = self.tree[self.root_index].count;
 
         let mut bits_iter = bits.iter();
 
         for _ in 0..byte_count {
-            let mut index = root_index;
+            let mut index = self.root_index;
 
             while self.tree[index].left.is_some() || self.tree[index].right.is_some() {
                 let bit = bits_iter.next().expect("missing data");
@@ -258,7 +213,7 @@ impl Huffman {
                 }
             }
 
-            decompressed.push(self.tree[index].data.expect("should have data"));
+            decompressed.push(index as u8);
         }
 
         decompressed
@@ -296,22 +251,25 @@ mod tests {
 
     #[test]
     fn create_freq_table() {
-        let table = Huffman::calculate_freq_table(&[0]);
+        let mut table = [0; MAX_SYMBOLS];
+        Huffman::calculate_freq_table(&mut table, &[0u8]);
 
-        assert_eq!(table.len(), 1);
-        assert_eq!(*table.get(&0).unwrap(), 1);
-
-        let table = Huffman::calculate_freq_table(&[0, 1, 2, 2, 3, 3, 3]);
-
-        assert_eq!(table.len(), 4);
-        assert_eq!(*table.get(&0).unwrap(), 1);
-        assert_eq!(*table.get(&1).unwrap(), 1);
-        assert_eq!(*table.get(&2).unwrap(), 2);
-        assert_eq!(*table.get(&3).unwrap(), 3);
+        assert_eq!(table[0], 1);
     }
 
     #[test]
-    fn test_payload_size_1() {
+    fn payload_size_0() {
+        let payload = &[];
+
+        let huffman = Huffman::new_from_data(payload);
+        let compressed = huffman.compress(payload);
+        let decompressed = huffman.decompress(&compressed);
+
+        assert_eq!(&payload[..], decompressed)
+    }
+
+    #[test]
+    fn payload_size_1() {
         let payload = &[0u8];
 
         let huffman = Huffman::new_from_data(payload);
@@ -334,10 +292,12 @@ mod tests {
 
         #[test]
         fn proptest_freq_table(data: Vec<u8>) {
-            let table = Huffman::calculate_freq_table(&data);
+            let mut table = [0; MAX_SYMBOLS];
+            Huffman::calculate_freq_table(&mut table, &data);
 
-            for b in &data {
-                prop_assert!(table.get(b).is_some());
+            for b in data {
+                prop_assert!(table.get(b as usize).is_some());
+                prop_assert!(table[b as usize] > 0);
             }
         }
     }
