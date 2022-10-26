@@ -22,6 +22,10 @@
 //! assert_eq!(&payload[..], decompressed);
 //! ```
 
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+#![deny(rustdoc::missing_doc_code_examples)]
+
 use std::{
     cell::RefCell,
     collections::{BinaryHeap, HashMap},
@@ -77,7 +81,11 @@ impl Ord for Node {
     }
 }
 
-#[derive(Debug, Clone)]
+/// Holds the data needed to (de)compress.
+/// 
+/// - Compress with [Self::compress]
+/// - Decompress with [Self::decompress]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Huffman {
     tree: Vec<Node>,
     // index lookup table for the leaf nodes.
